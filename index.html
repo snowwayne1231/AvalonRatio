@@ -1,0 +1,181 @@
+<html>
+<head>
+
+</head>
+
+<body>
+
+
+
+<script type="text/javascript">
+// [[go mission players, fail card], ..]
+const globalRoundMap = {
+    '5': [[2, 1], [3, 1], [2, 1], [3, 1], [3, 1]],
+    '6': [[2, 1], [3, 1], [4, 1], [3, 1], [2, 1]],
+    '7': [[2, 1], [3, 1], [3, 1], [4, 2], [4, 1]],
+    '8': [[3, 1], [4, 1], [4, 1], [5, 2], [5, 1]],
+    '9': [[3, 1], [4, 1], [4, 1], [5, 2], [5, 1]],
+    '10': [[3, 1], [4, 1], [4, 1], [5, 2], [5, 1]],
+}
+
+const golbalPlayerGroup = {
+    '5': [3, 2],
+    '6': [4, 2],
+    '7': [4, 3],
+    '8': [5, 3],
+    '9': [6, 3],
+    '10': [6, 4],
+}
+
+
+class AvalonStage {
+
+    constructor(player = 5, imgood = true) {
+        this.roundMap = globalRoundMap[player];
+        this.goodGuys = golbalPlayerGroup[player][0];
+        this.badGuys = golbalPlayerGroup[player][1];
+
+        if (imgood) {
+            this.otherPlayers = {
+                'good': this.goodGuys - 1,
+                'bad': this.badGuys,
+            }
+        } else {
+            this.otherPlayers = {
+                'good': this.goodGuys,
+                'bad': this.badGuys - 1,
+            }
+        }
+    }
+
+    getFirstRoundWinningRatio(goodPeopleYouKnown = 0) {
+        return this.getWinningRation(1, goodPeopleYouKnown);
+    }
+
+    getWinningRation(round = 1, goodPeopleYouKnown = 0, badpeopleYouKnown = 0, except = 0) {
+        const game = this.roundMap[round - 1];
+        const gamePlayerGoMissionNum = game[0];
+        const willFailOverNum = game[1];
+
+        const playerYouNeedToSentOut = gamePlayerGoMissionNum - 1 - goodPeopleYouKnown;
+        let ratio = 100;
+
+
+        if (playerYouNeedToSentOut > 0) {
+            let goodPeopleLeft = this.otherPlayers.good - goodPeopleYouKnown;
+            let badPeopleLeft = this.otherPlayers.bad - badpeopleYouKnown;
+
+            const possibleArray = [];
+            const mapBadGuyCountedPossible = {};
+            
+            const mapPossible = this.getPossible(goodPeopleLeft, badPeopleLeft, except, playerYouNeedToSentOut);
+            const mapPossiblePercent = this.travelPossibleMap(mapPossible, playerYouNeedToSentOut);
+
+            // console.log('mapPossible', mapPossible);
+            
+            // console.log('mapPossiblePercent', mapPossiblePercent);
+
+            ratio = 0;
+
+            for (let key in mapPossiblePercent) {
+                let percent = mapPossiblePercent[key];
+                let inMissionPeople = key.split(',');
+                if (inMissionPeople.filter(p => p==='bad').length >= willFailOverNum) {
+                    continue;
+                }
+                ratio += Math.floor(percent * 10000) / 100;
+            }
+        }
+        
+        return ratio;
+    }
+
+    getPossible(good, bad, except, times = 1, deepth = 0) {
+        const total = good + bad - except;
+        return times > 0 ? {
+            'good': { percent: (good - (except * 0.5)) / total, next: this.getPossible(good - 1, bad, except, times - 1, deepth +1)},
+            'bad': { percent: (bad - (except * 0.5)) / total, next: this.getPossible(good, bad - 1, except, times - 1, deepth +1)},
+            deepth,
+        } : null;
+    }
+
+    getAllSetByPeopleNum(peopleNum) {
+        const allSet = [];
+        const group = ['good', 'bad'];
+        const total = new Array(Math.pow(group.length, peopleNum)).fill(0);
+        return total.map((e,idx) => {
+            const ary = new Array(peopleNum).fill(group[0]);
+            let xString = idx.toString(group.length);
+            for (let s = xString.length; s < peopleNum; s++) {
+                xString = '0' + xString;
+            }
+            // console.log('xString', xString);
+            return ary.map((x, index) => {
+                return xString[index] ? group[xString[index]] : group[0];
+            });
+        });
+    }
+
+    travelPossibleMap(map, peopleNum) {
+        const set = this.getAllSetByPeopleNum(peopleNum);
+        // console.log('getAllSetByPeopleNum', set);
+        const nextMap = {};
+        set.map(gbary => {
+            const key = gbary.join(',');
+            nextMap[key] = getPercent(gbary);
+        });
+
+        return nextMap;
+
+        function getPercent(gbary) {
+            const new_ary = [...gbary];
+            return travel(map, new_ary);
+        }
+
+        function travel(obj, ary) {
+            const nextGuy = ary.splice(0, 1);
+            const _next = obj[nextGuy];
+            let percent = _next.percent;
+            if (_next.next) {
+                percent *= travel(_next.next, ary);
+            }
+
+            return percent;
+        }
+    }
+
+}
+
+let avalon = new AvalonStage(8);
+
+const ratio = avalon.getWinningRation();
+console.log(ratio);
+
+function init(player) {
+    avalon = new AvalonStage(parseInt(player, 10));
+}
+
+</script>
+
+<div id="app">
+    <table>
+        <thead></thead>
+        <tbody>
+                <tr>
+                    <td>遊玩人數</td>
+                    <td><input type="number" id="player" max="10" min="5"> </input></td>
+                </tr>
+        </tbody>
+    </table>
+    
+
+</div>
+
+<script>
+    document.getElementById('player').addEventListener('change', evt => {
+        init(evt.target.value);
+    });
+
+</script>
+</body>
+</html>
